@@ -1,8 +1,9 @@
 import requests
 import re
+import os
 import http.server
 import ssl
-import os
+import subprocess
 import pwd
 import json
 
@@ -37,8 +38,8 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         parsed_data = parse_qs(post_data.decode('utf-8'))
 
         # Extract username and password
-        username = parsed_data.get('username', [''])[0].replace(";","").replace("'","").replace('"',"")
-        password = parsed_data.get('password', [''])[0].replace(";","").replace("'","").replace('"',"")
+        username = parsed_data.get('username', [''])[0].strip()
+        password = parsed_data.get('password', [''])[0].strip()
 
         # Validate username
         if len(username) < 5:
@@ -51,7 +52,12 @@ class SimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif self.check_password(password):
             response_message = f"Hello, {username}! Account created successfully, use Quick Connect in ATAK to join with your creds"
             self.send_response(200)
-            os.system(f"java -jar /opt/tak/utils/UserManager.jar usermod -g discord -p '{password}' '{username}'")
+            try:
+                subprocess.run([
+                    "java", "-jar", "/opt/tak/utils/UserManager.jar", "usermod", "-g", "discord", "-p", password, username
+                ], check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"User creation failed: {e}")
         else:
             response_message = "Password must be at least 15 characters long, contain at least one uppercase letter, one lowercase letter, and one special character."
             self.send_response(400)
@@ -137,4 +143,3 @@ def run(server_class=http.server.HTTPServer, handler_class=SimpleHTTPRequestHand
 
 if __name__ == "__main__":
     run()
-
